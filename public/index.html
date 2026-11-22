@@ -31,14 +31,28 @@
         </div>
       </div>
       
+      <!-- 모드 전환 (가상 연습 모드 vs 실전 GPS 모드) -->
+      <div class="game-mode-bar">
+        <button class="mode-tab active" id="btnModeVirtual">
+          <span>🎮 가상 연습 모드</span>
+        </button>
+        <button class="mode-tab" id="btnModeReal">
+          <span>📍 실전 GPS 모드</span>
+        </button>
+      </div>
+
       <!-- 현재 가상/실제 탑승 상태 배너 -->
-      <div class="transit-banner">
+      <div class="transit-banner" id="transitBanner">
         <div class="transit-info">
-          <span class="pulse-indicator"></span>
-          <span class="transit-status" id="transitStatusText">현재 탑승: 2호선 내선순환</span>
+          <span class="pulse-indicator" id="pulseIndicator"></span>
+          <div class="transit-text-wrap">
+            <span class="transit-status" id="transitStatusText">현재 탑승: 2호선 내선순환</span>
+            <span class="gps-distance-text" id="gpsDistanceText">가상 모드: 시뮬레이션 주행 지원</span>
+          </div>
         </div>
         <div class="transit-controls">
-          <button id="btnVirtualTransit" class="btn-sm btn-outline">🚆 가상 탑승 진행</button>
+          <button id="btnVirtualTransit" class="btn-sm btn-outline">🚆 다음 역 이동</button>
+          <button id="btnRefreshGps" class="btn-sm btn-outline hidden">🔄 GPS 갱신</button>
         </div>
       </div>
       
@@ -49,13 +63,27 @@
       </div>
     </header>
 
+    <!-- 뷰 모드 전환 (최신 노선도 vs 전광판 목록) -->
+    <div class="view-switch-bar">
+      <button class="view-tab active" id="tabViewList">📋 전광판 목록</button>
+      <button class="view-tab" id="tabViewMap">🗺️ 최신 노선도 맵</button>
+    </div>
+
     <!-- 노선 필터 탭 -->
     <nav class="line-selector" id="lineSelector">
       <!-- 동적 생성: 2호선, 1호선, 3호선, 9호선 등 -->
     </nav>
 
-    <!-- 메인 컨텐츠 영역 -->
-    <main class="station-list-container">
+    <!-- 1. 인터랙티브 노선도 맵 뷰 -->
+    <div class="subway-map-wrap hidden" id="subwayMapWrap">
+      <div class="map-controls-guide">
+        <span>역을 터치하면 해당 역의 실시간 전광판으로 즉시 연결됩니다.</span>
+      </div>
+      <div id="subwayMapContainer" class="subway-map-svg-container"></div>
+    </div>
+
+    <!-- 2. 정차역 목록 카드 뷰 -->
+    <main class="station-list-container" id="stationListContainer">
       <div class="search-bar-wrap">
         <input type="text" id="stationSearchInput" placeholder="역 이름 검색 (예: 강남, 홍대입구, 신도림)" autocomplete="off">
         <span class="search-icon">🔍</span>
@@ -222,6 +250,8 @@
   <!-- JS 스크립트 모듈 -->
   <script src="./js/subwayData.js"></script>
   <script src="./js/clientEngine.js"></script>
+  <script src="./js/gpsManager.js"></script>
+  <script src="./js/subwayMap.js"></script>
   <script src="./js/state.js"></script>
   <script src="./js/minigame.js"></script>
   <script src="./js/simulator.js"></script>

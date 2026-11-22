@@ -51,6 +51,7 @@ function createMockElement(id = 'elem_' + Math.random()) {
     },
     querySelectorAll: function() { return []; },
     querySelector: function() { return null; },
+    setAttribute: function(k, v) { this[k] = v; },
     remove: function() {}
   };
   return el;
@@ -75,6 +76,9 @@ sandbox.document = {
   createElement: function(tag) {
     return createMockElement();
   },
+  createElementNS: function(ns, tag) {
+    return createMockElement();
+  },
   querySelectorAll: function() { return []; },
   addEventListener: function(event, cb) {
     domListeners[`document_${event}`] = cb;
@@ -96,6 +100,8 @@ function runFile(relPath) {
 try {
   runFile('public/js/subwayData.js');
   runFile('public/js/clientEngine.js');
+  runFile('public/js/gpsManager.js');
+  runFile('public/js/subwayMap.js');
   runFile('public/js/state.js');
   runFile('public/js/minigame.js');
   runFile('public/js/simulator.js');

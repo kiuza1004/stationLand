@@ -1,5 +1,6 @@
 /**
- * App.js - StationLand 프론트엔드 메인 컨트롤러 (하이브리드: 서버 & GitHub Pages 지원)
+ * App.js - StationLand 프론트엔드 메인 컨트롤러
+ * 가상 연습 모드 vs 실전 GPS 모드 & 최신 지하철 노선도 맵 뷰 탑재
  */
 
 let globalSnapshot = null;
@@ -9,6 +10,9 @@ let currentActiveDirection = 0;
 let currentTargetStationId = '222'; // 기본 강남역
 let miniGameInstance = null;
 let simulatorInstance = null;
+let subwayMapRenderer = null;
+let currentGameMode = 'virtual'; // 'virtual' | 'real'
+let currentViewMode = 'list';    // 'list' | 'map'
 
 // DOM 요소 참조
 const lineSelector = document.getElementById('lineSelector');
@@ -18,12 +22,22 @@ const quickStationName = document.getElementById('quickStationName');
 const quickStationState = document.getElementById('quickStationState');
 const btnQuickCheckin = document.getElementById('btnQuickCheckin');
 const btnVirtualTransit = document.getElementById('btnVirtualTransit');
+const btnRefreshGps = document.getElementById('btnRefreshGps');
 const transitStatusText = document.getElementById('transitStatusText');
+const gpsDistanceText = document.getElementById('gpsDistanceText');
 const headerUserName = document.getElementById('headerUserName');
 const headerUserPoints = document.getElementById('headerUserPoints');
 const headerFactionBadge = document.getElementById('headerFactionBadge');
 const pwaNotice = document.getElementById('pwaNotice');
 const btnCloseNotice = document.getElementById('btnCloseNotice');
+
+// 모드 및 뷰 전환 탭
+const btnModeVirtual = document.getElementById('btnModeVirtual');
+const btnModeReal = document.getElementById('btnModeReal');
+const tabViewList = document.getElementById('tabViewList');
+const tabViewMap = document.getElementById('tabViewMap');
+const subwayMapWrap = document.getElementById('subwayMapWrap');
+const stationListContainer = document.getElementById('stationListContainer');
 
 // 모달 참조
 const modalMission = document.getElementById('modalMission');
@@ -55,6 +69,7 @@ let activeClaimSlotType = 'main';
 // 토스트 메시지
 function showToast(msg) {
   const container = document.getElementById('toastContainer');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = 'toast';
   toast.textContent = msg;
@@ -70,25 +85,39 @@ async function initApp() {
   await loadMetadata();
   await refreshSnapshot();
 
-  // 시뮬레이터 초기화
+  // 노선도 맵 렌더러 초기화
+  if (window.SubwayMapRenderer) {
+    subwayMapRenderer = new SubwayMapRenderer('subwayMapContainer', (selectedStId) => {
+      currentTargetStationId = selectedStId;
+      updateTransitBanner();
+      updateQuickActionBar();
+      showToast(`[${getStationName(selectedStId)}] 역이 선택되었습니다.`);
+    });
+    subwayMapRenderer.render();
+  }
+
+  // 시뮬레이터 초기화 (가상 연습 모드용)
   simulatorInstance = new SubwaySimulator((newStId) => {
-    currentTargetStationId = newStId;
-    updateTransitBanner();
-    renderStationCards();
-    showToast(`🚆 다음 역 [${getStationName(newStId)}]에 도착했습니다!`);
+    if (currentGameMode === 'virtual') {
+      currentTargetStationId = newStId;
+      if (subwayMapRenderer) subwayMapRenderer.setActiveStation(newStId);
+      updateTransitBanner();
+      renderStationCards();
+      showToast(`🚆 [가상 연습] 다음 역 [${getStationName(newStId)}]에 도착했습니다!`);
+    }
   });
 
   // 미니게임 초기화
   miniGameInstance = new TransitMiniGame(
     () => {
       showToast('🎉 제동 성공! 전광판 문구를 등록하세요.');
-      minigameContainer.classList.add('hidden');
-      claimFormContainer.classList.remove('hidden');
+      if (minigameContainer) minigameContainer.classList.add('hidden');
+      if (claimFormContainer) claimFormContainer.classList.remove('hidden');
     },
     (failMsg) => {
       showToast(failMsg);
       setTimeout(() => {
-        modalMission.classList.add('hidden');
+        if (modalMission) modalMission.classList.add('hidden');
       }, 1000);
     }
   );
@@ -101,10 +130,10 @@ async function initApp() {
 }
 
 function updateUserHeader() {
-  headerUserName.textContent = userState.user.nickname;
-  headerUserPoints.textContent = `${userState.user.points} P`;
+  if (headerUserName) headerUserName.textContent = userState.user.nickname;
+  if (headerUserPoints) headerUserPoints.textContent = `${userState.user.points} P`;
   const fBadge = getFactionBadge(userState.user.factionId);
-  headerFactionBadge.textContent = fBadge;
+  if (headerFactionBadge) headerFactionBadge.textContent = fBadge;
 }
 
 function getFactionBadge(fId) {
@@ -122,10 +151,12 @@ function getStationName(stId) {
   if (globalSnapshot && globalSnapshot.stations && globalSnapshot.stations[stId]) {
     return globalSnapshot.stations[stId].name;
   }
-  return stId;
+  const { STATIONS } = window.SUBWAY_DATA;
+  const found = STATIONS.find(s => s.id === stId);
+  return found ? found.name : stId;
 }
 
-// 2. 메타데이터 및 스냅샷 로드 (서버 또는 클라이언트 엔진)
+// 2. 메타데이터 및 스냅샷 로드
 async function loadMetadata() {
   if (window.isGitHubPages || !window.fetch) {
     globalMeta = {
@@ -170,7 +201,7 @@ async function refreshSnapshot() {
 
 // 3. 노선 탭 렌더링
 function renderLineSelector() {
-  if (!globalMeta || !globalMeta.lines) return;
+  if (!globalMeta || !globalMeta.lines || !lineSelector) return;
   lineSelector.innerHTML = '';
 
   for (const [lineId, line] of Object.entries(globalMeta.lines)) {
@@ -194,9 +225,9 @@ function renderLineSelector() {
 
 // 4. 역 카드 렌더링
 function renderStationCards() {
-  if (!globalSnapshot || !globalSnapshot.stations) return;
+  if (!globalSnapshot || !globalSnapshot.stations || !stationCardsContainer) return;
 
-  const searchQuery = stationSearchInput.value.trim().toLowerCase();
+  const searchQuery = stationSearchInput ? stationSearchInput.value.trim().toLowerCase() : '';
   stationCardsContainer.innerHTML = '';
 
   const matchedStations = Object.values(globalSnapshot.stations).filter(st => {
@@ -221,10 +252,23 @@ function renderStationCards() {
 
 function createStationCard(st) {
   const card = document.createElement('div');
-  card.className = `station-card ${st.crowded ? 'crowded' : ''}`;
+  card.className = `station-card ${st.crowded ? 'crowded' : ''} ${st.id === currentTargetStationId ? 'selected-target' : ''}`;
+  card.setAttribute('data-st-id', st.id);
 
   const currentDirData = st.directions[currentActiveDirection] || st.directions[0];
   const main = currentDirData.mainSlot;
+
+  // 실제 모드일 때 GPS 거리 표시
+  let gpsBadgeHtml = '';
+  if (currentGameMode === 'real' && window.gpsManager) {
+    const prox = window.gpsManager.checkStationProximity(st.id);
+    if (prox.hasGps && prox.distanceMeters !== null) {
+      const distStr = prox.distanceMeters >= 1000 ? `${(prox.distanceMeters / 1000).toFixed(1)}km` : `${prox.distanceMeters}m`;
+      gpsBadgeHtml = prox.isMatch
+        ? `<span class="crowd-badge" style="background:rgba(0,255,102,0.2);color:#00ff66;">📍 현재 위치 일치 (${distStr})</span>`
+        : `<span class="crowd-badge" style="background:rgba(255,255,255,0.08);color:#8b949e;">📏 거리: ${distStr}</span>`;
+    }
+  }
 
   const headerHtml = `
     <div class="card-header">
@@ -232,6 +276,7 @@ function createStationCard(st) {
         <span class="line-badge" style="background-color: ${getLineColor(st.line)}">${getLineShortName(st.line)}</span>
         <span class="st-name">${st.name}</span>
         ${st.crowded ? '<span class="crowd-badge">혼잡(1~10호차)</span>' : ''}
+        ${gpsBadgeHtml}
       </div>
       <div class="faction-dom-badge">
         ${currentDirData.dominantFaction ? `우세: ${getFactionBadge(currentDirData.dominantFaction)}` : '중립 구역'}
@@ -334,14 +379,17 @@ function createStationCard(st) {
     actionBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       currentTargetStationId = st.id;
+      if (subwayMapRenderer) subwayMapRenderer.setActiveStation(st.id);
       updateQuickActionBar();
-      openMissionModal();
+      handleQuickCheckin();
     });
   }
 
   card.addEventListener('click', () => {
     currentTargetStationId = st.id;
+    if (subwayMapRenderer) subwayMapRenderer.setActiveStation(st.id);
     updateQuickActionBar();
+    updateTransitBanner();
   });
 
   return card;
@@ -389,39 +437,99 @@ async function handleLike(stationId, dirIdx) {
   }
 }
 
-// 6. 하단 퀵 액션바 & 탑승 배너 갱신
+// 6. 상단 탑승 배너 & 퀵 액션바 갱신 (가상 vs 실제 GPS 분기)
 function updateTransitBanner() {
   const stName = getStationName(currentTargetStationId);
-  transitStatusText.textContent = `현재 위치/정차: [${stName}]`;
-  quickStationName.textContent = stName;
-  quickStationState.textContent = '열차 정차 중 (미션 도전 가능)';
-  btnQuickCheckin.disabled = false;
+
+  if (currentGameMode === 'virtual') {
+    if (transitStatusText) transitStatusText.textContent = `[가상 주행] 현재 정차: [${stName}]`;
+    if (gpsDistanceText) gpsDistanceText.textContent = '🎮 가상 연습 모드: 시뮬레이션 주행 및 제동 미션 연습';
+    if (quickStationName) quickStationName.textContent = stName;
+    if (quickStationState) quickStationState.textContent = '가상 모의 정차 중 (미션 연습 가능)';
+  } else {
+    // 실제 모드
+    if (transitStatusText) transitStatusText.textContent = `[실제 실전] 타겟 정차역: [${stName}]`;
+    if (window.gpsManager && window.gpsManager.currentCoords) {
+      const prox = window.gpsManager.checkStationProximity(currentTargetStationId);
+      if (prox.distanceMeters !== null) {
+        const distStr = prox.distanceMeters >= 1000 ? `${(prox.distanceMeters / 1000).toFixed(1)}km` : `${prox.distanceMeters}m`;
+        if (gpsDistanceText) {
+          gpsDistanceText.textContent = prox.isMatch
+            ? `📍 현재 위치 일치 (${distStr} 거리) - 정차역 체크인 가능!`
+            : `⚠️ 정차역 불일치 (${distStr} 거리) - 실제로 ${stName}역에 도착해야 합니다.`;
+          gpsDistanceText.style.color = prox.isMatch ? '#00ff66' : '#f85149';
+        }
+        if (quickStationState) {
+          quickStationState.textContent = prox.isMatch ? '📍 정차역 위치 일치 (체크인 가능)' : `거리: ${distStr} (실제 정차 필요)`;
+        }
+      }
+    } else {
+      if (gpsDistanceText) {
+        gpsDistanceText.textContent = '📍 GPS 위치 확인 중... (스마트폰 위치 권한 필요)';
+        gpsDistanceText.style.color = 'var(--color-neon-blue)';
+      }
+    }
+    if (quickStationName) quickStationName.textContent = stName;
+  }
+
+  if (btnQuickCheckin) btnQuickCheckin.disabled = false;
 }
 
 function updateQuickActionBar() {
   const stName = getStationName(currentTargetStationId);
-  quickStationName.textContent = stName;
+  if (quickStationName) quickStationName.textContent = stName;
 }
 
-// 7. 정차역 체크인 & 미션 모달 열기
+// 7. 정차역 체크인 & GPS 검증 (실제모드 vs 가상모드)
 async function handleQuickCheckin() {
-  btnQuickCheckin.disabled = true;
-  showToast(`[${getStationName(currentTargetStationId)}] 체크인 완료! 미션을 시작합니다.`);
+  if (btnQuickCheckin) btnQuickCheckin.disabled = true;
+
+  if (currentGameMode === 'real') {
+    // [실제 모드 검증]: 스마트폰 GPS와 정차역 좌표 일치 확인 (800m 이내)
+    if (!window.gpsManager) {
+      showToast('GPS 모듈을 초기화할 수 없습니다.');
+      if (btnQuickCheckin) btnQuickCheckin.disabled = false;
+      return;
+    }
+
+    const proximity = window.gpsManager.checkStationProximity(currentTargetStationId);
+    if (!proximity.hasGps) {
+      showToast('⚠️ GPS 신호 수신 중입니다. 스마트폰의 위치 서비스(GPS)를 켜주세요.');
+      if (btnQuickCheckin) btnQuickCheckin.disabled = false;
+      return;
+    }
+
+    if (!proximity.isMatch) {
+      showToast(`⚠️ [체크인 실패] ${proximity.message}`);
+      if (btnQuickCheckin) btnQuickCheckin.disabled = false;
+      return;
+    }
+
+    showToast(`📍 [실제 정차 확인] ${proximity.message}`);
+  } else {
+    // [가상 연습 모드]: 자유로운 모의 테스트
+    showToast(`🎮 [가상 연습] [${getStationName(currentTargetStationId)}] 모의 정차 미션을 시작합니다.`);
+  }
+
   openMissionModal();
-  btnQuickCheckin.disabled = false;
+  if (btnQuickCheckin) btnQuickCheckin.disabled = false;
 }
 
 function openMissionModal() {
-  document.getElementById('modalMissionTitle').textContent = `[${getStationName(currentTargetStationId)}] 제동 미션`;
-  minigameContainer.classList.remove('hidden');
-  claimFormContainer.classList.add('hidden');
-  modalMission.classList.remove('hidden');
+  const modePrefix = (currentGameMode === 'real') ? '📍 [실전]' : '🎮 [연습]';
+  const modalTitle = document.getElementById('modalMissionTitle');
+  if (modalTitle) modalTitle.textContent = `${modePrefix} [${getStationName(currentTargetStationId)}] 제동 미션`;
+
+  if (minigameContainer) minigameContainer.classList.remove('hidden');
+  if (claimFormContainer) claimFormContainer.classList.add('hidden');
+  if (modalMission) modalMission.classList.remove('hidden');
 
   updatePresetSelector();
-  miniGameInstance.start();
+  if (miniGameInstance) miniGameInstance.start();
 }
 
 function updatePresetSelector() {
+  if (!selectPreset) return;
   selectPreset.innerHTML = '<option value="">-- 프리셋 선택 --</option>';
   userState.user.presets.forEach((p, idx) => {
     const opt = document.createElement('option');
@@ -433,30 +541,34 @@ function updatePresetSelector() {
 
 // 8. 전광판 점령 제출 (메인 50자 / 서브 25자)
 async function submitClaim() {
-  btnSubmitClaim.disabled = true;
+  if (btnSubmitClaim) btnSubmitClaim.disabled = true;
   try {
+    const isVirtualNotice = (currentGameMode === 'virtual') ? '[연습] ' : '';
+
     if (activeClaimSlotType === 'main') {
-      const title = inputMainTitle.value.trim();
-      const body = inputMainBody.value.trim();
+      const title = (inputMainTitle ? inputMainTitle.value : '').trim();
+      const body = (inputMainBody ? inputMainBody.value : '').trim();
 
       if (!title && !body) {
         showToast('헤드라인이나 상세 문구를 입력하세요.');
-        btnSubmitClaim.disabled = false;
+        if (btnSubmitClaim) btnSubmitClaim.disabled = false;
         return;
       }
 
+      const finalTitle = isVirtualNotice ? `[연습] ${title}`.slice(0, 15) : title;
+
       if (window.isGitHubPages) {
-        const data = window.clientEngine.claimMainSlot(currentTargetStationId, currentActiveDirection, userState.user, title, body);
+        const data = window.clientEngine.claimMainSlot(currentTargetStationId, currentActiveDirection, userState.user, finalTitle, body);
         if (data.success) {
           userState.addPoints(50);
           updateUserHeader();
           showToast(`🎉 ${data.message} (+50 P 획득)`);
-          modalMission.classList.add('hidden');
+          if (modalMission) modalMission.classList.add('hidden');
           refreshSnapshot();
         } else {
           showToast(`⚠️ ${data.message}`);
         }
-        btnSubmitClaim.disabled = false;
+        if (btnSubmitClaim) btnSubmitClaim.disabled = false;
         return;
       }
 
@@ -470,7 +582,7 @@ async function submitClaim() {
           factionId: userState.user.factionId,
           stationId: currentTargetStationId,
           directionIdx: currentActiveDirection,
-          title,
+          title: finalTitle,
           body
         })
       });
@@ -479,31 +591,33 @@ async function submitClaim() {
         userState.addPoints(50);
         updateUserHeader();
         showToast(`🎉 ${data.message} (+50 P 획득)`);
-        modalMission.classList.add('hidden');
+        if (modalMission) modalMission.classList.add('hidden');
         refreshSnapshot();
       } else {
         showToast(`⚠️ ${data.message}`);
       }
     } else {
-      const subText = inputSubText.value.trim();
+      const subText = (inputSubText ? inputSubText.value : '').trim();
       if (!subText) {
         showToast('서브 문구를 입력하세요.');
-        btnSubmitClaim.disabled = false;
+        if (btnSubmitClaim) btnSubmitClaim.disabled = false;
         return;
       }
 
+      const finalSub = isVirtualNotice ? `[연습] ${subText}`.slice(0, 25) : subText;
+
       if (window.isGitHubPages) {
-        const data = window.clientEngine.claimSubSlot(currentTargetStationId, currentActiveDirection, userState.user, subText);
+        const data = window.clientEngine.claimSubSlot(currentTargetStationId, currentActiveDirection, userState.user, finalSub);
         if (data.success) {
           userState.addPoints(20);
           updateUserHeader();
           showToast(`🎉 ${data.message} (+20 P 획득)`);
-          modalMission.classList.add('hidden');
+          if (modalMission) modalMission.classList.add('hidden');
           refreshSnapshot();
         } else {
           showToast(`⚠️ ${data.message}`);
         }
-        btnSubmitClaim.disabled = false;
+        if (btnSubmitClaim) btnSubmitClaim.disabled = false;
         return;
       }
 
@@ -517,7 +631,7 @@ async function submitClaim() {
           factionId: userState.user.factionId,
           stationId: currentTargetStationId,
           directionIdx: currentActiveDirection,
-          subText
+          subText: finalSub
         })
       });
       const data = await res.json();
@@ -525,7 +639,7 @@ async function submitClaim() {
         userState.addPoints(20);
         updateUserHeader();
         showToast(`🎉 ${data.message} (+20 P 획득)`);
-        modalMission.classList.add('hidden');
+        if (modalMission) modalMission.classList.add('hidden');
         refreshSnapshot();
       } else {
         showToast(`⚠️ ${data.message}`);
@@ -534,7 +648,7 @@ async function submitClaim() {
   } catch (err) {
     showToast('점령 처리 중 오류가 발생했습니다.');
   } finally {
-    btnSubmitClaim.disabled = false;
+    if (btnSubmitClaim) btnSubmitClaim.disabled = false;
   }
 }
 
@@ -542,6 +656,7 @@ async function submitClaim() {
 function renderFactionSelector() {
   if (!globalMeta || !globalMeta.factions) return;
   const list = document.getElementById('factionSelectorList');
+  if (!list) return;
   list.innerHTML = '';
 
   globalMeta.factions.forEach(f => {
@@ -566,6 +681,7 @@ function renderFactionSelector() {
 
 function renderPresetManageList() {
   const container = document.getElementById('presetManageList');
+  if (!container) return;
   container.innerHTML = '';
 
   userState.user.presets.forEach(p => {
@@ -578,17 +694,98 @@ function renderPresetManageList() {
       </div>
       <button class="btn-sm btn-outline" style="color:#f85149" data-del="${p.id}">삭제</button>
     `;
-    div.querySelector('button').addEventListener('click', () => {
-      userState.removePreset(p.id);
-      renderPresetManageList();
-      showToast('프리셋이 삭제되었습니다.');
-    });
+    const delBtn = div.querySelector('button');
+    if (delBtn) {
+      delBtn.addEventListener('click', () => {
+        userState.removePreset(p.id);
+        renderPresetManageList();
+        showToast('프리셋이 삭제되었습니다.');
+      });
+    }
     container.appendChild(div);
   });
 }
 
-// 10. 이벤트 바인딩
+// 10. 모드 전환 & 뷰 전환 & 이벤트 바인딩
 function bindEventListeners() {
+  // 모드 전환 (가상 연습 모드)
+  if (btnModeVirtual) {
+    btnModeVirtual.addEventListener('click', () => {
+      currentGameMode = 'virtual';
+      btnModeVirtual.classList.add('active');
+      if (btnModeReal) btnModeReal.classList.remove('active');
+      if (btnVirtualTransit) btnVirtualTransit.classList.remove('hidden');
+      if (btnRefreshGps) btnRefreshGps.classList.add('hidden');
+      if (window.gpsManager) window.gpsManager.stopTracking();
+      updateTransitBanner();
+      renderStationCards();
+      showToast('🎮 [가상 연습 모드]로 전환되었습니다. 모의 주행과 미션을 연습하세요!');
+    });
+  }
+
+  // 모드 전환 (실전 GPS 모드)
+  if (btnModeReal) {
+    btnModeReal.addEventListener('click', () => {
+      currentGameMode = 'real';
+      btnModeReal.classList.add('active');
+      if (btnModeVirtual) btnModeVirtual.classList.remove('active');
+      if (btnVirtualTransit) btnVirtualTransit.classList.add('hidden');
+      if (btnRefreshGps) btnRefreshGps.classList.remove('hidden');
+
+      showToast('📍 [실전 GPS 모드] 위치 정보를 추적합니다...');
+      if (window.gpsManager) {
+        window.gpsManager.startTracking((coords) => {
+          // 가장 가까운 역 감지 시 해당 역 자동 포커스
+          const nearest = window.gpsManager.findNearestStation();
+          if (nearest && nearest.station) {
+            if (subwayMapRenderer) subwayMapRenderer.setUserGpsStation(nearest.station.id);
+            if (nearest.distance <= 800) {
+              currentTargetStationId = nearest.station.id;
+            }
+          }
+          updateTransitBanner();
+          renderStationCards();
+        });
+      }
+      updateTransitBanner();
+    });
+  }
+
+  // GPS 즉시 갱신 버튼
+  if (btnRefreshGps) {
+    btnRefreshGps.addEventListener('click', () => {
+      if (window.gpsManager) {
+        showToast('🔄 GPS 위치를 다시 측정합니다...');
+        window.gpsManager.startTracking(() => {
+          updateTransitBanner();
+          renderStationCards();
+        });
+      }
+    });
+  }
+
+  // 뷰 전환 (전광판 목록 vs 노선도 맵)
+  if (tabViewList && tabViewMap) {
+    tabViewList.addEventListener('click', () => {
+      currentViewMode = 'list';
+      tabViewList.classList.add('active');
+      tabViewMap.classList.remove('active');
+      if (stationListContainer) stationListContainer.classList.remove('hidden');
+      if (subwayMapWrap) subwayMapWrap.classList.add('hidden');
+    });
+
+    tabViewMap.addEventListener('click', () => {
+      currentViewMode = 'map';
+      tabViewMap.classList.add('active');
+      tabViewList.classList.remove('active');
+      if (stationListContainer) stationListContainer.classList.add('hidden');
+      if (subwayMapWrap) {
+        subwayMapWrap.classList.remove('hidden');
+        if (subwayMapRenderer) subwayMapRenderer.render();
+      }
+    });
+  }
+
   if (btnCloseNotice && pwaNotice) {
     btnCloseNotice.addEventListener('click', () => {
       pwaNotice.style.display = 'none';
@@ -712,9 +909,7 @@ function bindEventListeners() {
   }
 
   const btnExport = document.getElementById('btnExportCode');
-  const btnImport = document.getElementById('btnImportCode');
   const textBackup = document.getElementById('textBackupCode');
-
   if (btnExport && textBackup) {
     btnExport.addEventListener('click', async () => {
       try {
@@ -730,6 +925,7 @@ function bindEventListeners() {
     });
   }
 
+  const btnImport = document.getElementById('btnImportCode');
   if (btnImport) {
     btnImport.addEventListener('click', async () => {
       const code = prompt('복구 코드를 붙여넣으세요:');
@@ -766,11 +962,9 @@ function bindEventListeners() {
 function setupPwa() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').then(reg => {
-        // console.log('SW 등록 성공');
-      }).catch(err => {
-        // console.warn('SW 등록 실패:', err);
-      });
+      navigator.serviceWorker.register('./sw.js').then(() => {
+        // console.log('SW registered');
+      }).catch(() => {});
     });
   }
 }

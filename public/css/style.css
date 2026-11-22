@@ -107,6 +107,130 @@ body {
   font-weight: 700;
 }
 
+/* 모드 전환 바 (가상 연습 vs 실전 GPS) */
+.game-mode-bar {
+  display: flex;
+  margin-top: 8px;
+  background-color: #0b0e14;
+  border-radius: 8px;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+}
+.mode-tab {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.mode-tab.active {
+  background: linear-gradient(135deg, #1f6feb, #388bfd);
+  color: #fff;
+  box-shadow: 0 0 10px rgba(56, 139, 253, 0.4);
+}
+#btnModeReal.mode-tab.active {
+  background: linear-gradient(135deg, #238636, #2ea043);
+  box-shadow: 0 0 10px rgba(46, 160, 67, 0.4);
+}
+
+/* 뷰 전환 탭 (목록 vs 노선도 맵) */
+.view-switch-bar {
+  display: flex;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  padding: 4px 16px;
+  gap: 8px;
+}
+.view-tab {
+  flex: 1;
+  padding: 6px 0;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.view-tab.active {
+  color: #fff;
+  background: rgba(0, 210, 255, 0.1);
+  border-color: rgba(0, 210, 255, 0.3);
+}
+
+.transit-text-wrap {
+  display: flex;
+  flex-direction: column;
+}
+.gps-distance-text {
+  font-size: 11px;
+  color: var(--color-neon-blue);
+  font-weight: 500;
+}
+
+/* 인터랙티브 노선도 맵 */
+.subway-map-wrap {
+  background-color: #080b10;
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 8px;
+}
+.map-controls-guide {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 6px;
+}
+.subway-map-svg-container {
+  width: 100%;
+  max-height: 480px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: radial-gradient(circle at 50% 50%, #101620 0%, #06080c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.subway-svg-map {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.station-map-label {
+  font-size: 10px;
+  font-weight: 700;
+  fill: #8b949e;
+  pointer-events: none;
+}
+.station-node.active .station-map-label {
+  fill: #ffffff;
+  font-size: 12px;
+}
+.active-selection-ring {
+  fill: none;
+  stroke: var(--color-neon-blue);
+  stroke-width: 2.5;
+  animation: pulseSelection 1.5s infinite;
+}
+@keyframes pulseSelection {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+.gps-radar-ring {
+  fill: rgba(0, 255, 102, 0.25);
+  stroke: var(--color-neon-green);
+  stroke-width: 2;
+  animation: radarPing 2s infinite ease-out;
+}
+@keyframes radarPing {
+  0% { r: 6px; opacity: 1; }
+  100% { r: 24px; opacity: 0; }
+}
+
 /* 탑승 배너 */
 .transit-banner {
   display: flex;

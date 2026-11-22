@@ -98,6 +98,21 @@ async function runTests() {
   assert.strictEqual(stateManager.stations['222'].directions[0].mainSlot.owner.nickname, '테스터승객');
   console.log('  ✓ 원자적 파일 백업 및 부팅 복원 완벽 통과');
 
+  // 8. GPS 거리 계산 및 정차역 도달 판정 검증
+  console.log('8. GPS 거리 계산 및 정차역 도달 판정 검증...');
+  const { calculateGpsDistanceMeters, STATION_GPS_THRESHOLD_METERS } = require('../server/subwayData');
+  // 강남역: 37.4979, 127.0276
+  // 역삼역: 37.5006, 127.0365 (약 850m 거리)
+  // 강남역 4번출구 앞(가상 승객): 37.4981, 127.0280 (약 40m 거리)
+  const distNear = calculateGpsDistanceMeters(37.4981, 127.0280, 37.4979, 127.0276);
+  assert(distNear <= 100, `강남역 근처 승객 거리는 100m 이내여야 함 (현재: ${distNear}m)`);
+  assert(distNear <= STATION_GPS_THRESHOLD_METERS, '강남역 근처 승객은 도달 판정(800m 이내)이어야 합니다.');
+
+  const distFar = calculateGpsDistanceMeters(37.5575, 126.9245, 37.4979, 127.0276); // 홍대입구 -> 강남 (약 11km)
+  assert(distFar > 10000, `홍대-강남 거리는 10km 이상이어야 함 (현재: ${distFar}m)`);
+  assert(distFar > STATION_GPS_THRESHOLD_METERS, '홍대입구에 있는 유저는 강남역 체크인이 불일치로 차단되어야 합니다.');
+  console.log(`  ✓ GPS 거리 계산 및 정차역 일치/불일치 판정 완벽 통과 (근접: ${distNear}m, 원거리: ${distFar}m)`);
+
   console.log('\n====================================================');
   console.log('🎉 모든 시스템 코어 테스트가 100% 정상 통과되었습니다!');
   console.log('====================================================\n');
