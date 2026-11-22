@@ -1,8 +1,10 @@
 # StationLand (스테이션랜드) 🚇
 
 > **서울 지하철 정차역 실시간 점령 및 50자 네온 전광판 웹앱 게임**  
-> 저장소 주소: [https://github.com/kiuza1004/stationLand](https://github.com/kiuza1004/stationLand)
+> 🔗 **웹 바로 실행 주소 (GitHub Pages)**: **[https://kiuza1004.github.io/stationLand/](https://kiuza1004.github.io/stationLand/)**  
+> 📦 **GitHub 소스 저장소**: [https://github.com/kiuza1004/stationLand](https://github.com/kiuza1004/stationLand)
 
+별도의 서버 설치 없이 위 **웹 바로 실행 주소**를 클릭하면 모바일/PC 웹 브라우저에서 즉시 플레이할 수 있습니다!  
 지하철을 타고 이동하면서 정차역마다 간단한 제동 타이밍 미니 미션을 수행하여 정차역을 점령하고, 일정 시간 동안 **최대 50자(헤드라인 15자 + 상세 35자)**의 응원 문구, 유머, 또는 로컬 개인 광고를 게시하는 실시간 지하철 땅따먹기 게임입니다.
 
 ---

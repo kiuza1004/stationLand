@@ -4,6 +4,7 @@
  */
 
 const STORAGE_KEY = 'stationland_user_state';
+const isGitHubPages = window.location.hostname.includes('github.io');
 
 class UserStateManager {
   constructor() {
@@ -64,11 +65,21 @@ class UserStateManager {
     }
   }
 
-  // 서버로부터 보안 인증 토큰 발급받기
+  // 보안 인증 토큰 발급 (서버 또는 로컬 클라이언트 모드)
   async ensureAuthToken() {
-    if (!this.state.uuid || !this.state.token) {
+    if (!this.state.uuid) {
+      this.state.uuid = 'usr_' + Math.random().toString(36).substring(2, 12);
+    }
+
+    if (!this.state.token) {
+      if (isGitHubPages) {
+        this.state.token = 'gh_token_' + this.state.uuid;
+        this.save();
+        return;
+      }
+
       try {
-        const res = await fetch('/api/auth/token', {
+        const res = await fetch('./api/auth/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uuid: this.state.uuid })
@@ -80,7 +91,9 @@ class UserStateManager {
           this.save();
         }
       } catch (err) {
-        console.error('토큰 발급 실패:', err);
+        // 서버 없을 시 로컬 토큰으로 폴백
+        this.state.token = 'local_token_' + this.state.uuid;
+        this.save();
       }
     }
   }
@@ -129,51 +142,77 @@ class UserStateManager {
 
   // 복구 코드 생성 (내보내기)
   async exportBackupCode() {
+    const payload = JSON.stringify({
+      uuid: this.state.uuid,
+      userData: {
+        nickname: this.state.nickname,
+        factionId: this.state.factionId,
+        points: this.state.points,
+        presets: this.state.presets
+      },
+      exportedAt: Date.now()
+    });
+
     try {
-      const res = await fetch('/api/user/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uuid: this.state.uuid,
-          token: this.state.token,
-          userData: {
-            nickname: this.state.nickname,
-            factionId: this.state.factionId,
-            points: this.state.points,
-            presets: this.state.presets
-          }
-        })
-      });
-      const data = await res.json();
-      return data.backupCode;
-    } catch (err) {
-      throw new Error('복구 코드 생성 실패');
-    }
+      if (!isGitHubPages) {
+        const res = await fetch('./api/user/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uuid: this.state.uuid,
+            token: this.state.token,
+            userData: this.state
+          })
+        });
+        const data = await res.json();
+        if (data.success) return data.backupCode;
+      }
+    } catch (e) {}
+
+    // 로컬 Base64 코드
+    return btoa(encodeURIComponent(payload));
   }
 
   // 복구 코드 가져오기 (불러오기)
   async importBackupCode(backupCode) {
     try {
-      const res = await fetch('/api/user/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backupCode })
-      });
-      const data = await res.json();
-      if (data.success) {
-        this.state.uuid = data.uuid;
-        this.state.token = data.token;
-        if (data.userData) {
-          this.state.nickname = data.userData.nickname || this.state.nickname;
-          this.state.factionId = data.userData.factionId || this.state.factionId;
-          this.state.points = data.userData.points || this.state.points;
-          this.state.presets = data.userData.presets || this.state.presets;
+      if (!isGitHubPages) {
+        const res = await fetch('./api/user/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ backupCode })
+        });
+        const data = await res.json();
+        if (data.success) {
+          this.state.uuid = data.uuid;
+          this.state.token = data.token;
+          if (data.userData) {
+            this.state.nickname = data.userData.nickname || this.state.nickname;
+            this.state.factionId = data.userData.factionId || this.state.factionId;
+            this.state.points = data.userData.points || this.state.points;
+            this.state.presets = data.userData.presets || this.state.presets;
+          }
+          this.save();
+          return true;
         }
+      }
+    } catch (e) {}
+
+    // 로컬 디코딩
+    try {
+      const decoded = decodeURIComponent(atob(backupCode));
+      const data = JSON.parse(decoded);
+      if (data.uuid && data.userData) {
+        this.state.uuid = data.uuid;
+        this.state.nickname = data.userData.nickname || this.state.nickname;
+        this.state.factionId = data.userData.factionId || this.state.factionId;
+        this.state.points = data.userData.points || this.state.points;
+        this.state.presets = data.userData.presets || this.state.presets;
         this.save();
         return true;
       }
-    } catch (err) {
-      throw new Error('복구 코드 복원 실패');
+    } catch (e) {
+      throw new Error('유효하지 않은 복구 코드입니다.');
     }
     return false;
   }

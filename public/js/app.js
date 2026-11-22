@@ -1,5 +1,5 @@
 /**
- * App.js - StationLand 프론트엔드 메인 컨트롤러
+ * App.js - StationLand 프론트엔드 메인 컨트롤러 (하이브리드: 서버 & GitHub Pages 지원)
  */
 
 let globalSnapshot = null;
@@ -9,6 +9,7 @@ let currentActiveDirection = 0;
 let currentTargetStationId = '222'; // 기본 강남역
 let miniGameInstance = null;
 let simulatorInstance = null;
+const isGitHubPages = window.location.hostname.includes('github.io');
 
 // DOM 요소 참조
 const lineSelector = document.getElementById('lineSelector');
@@ -50,7 +51,7 @@ const btnSubmitClaim = document.getElementById('btnSubmitClaim');
 const minigameContainer = document.getElementById('minigameContainer');
 const claimFormContainer = document.getElementById('claimFormContainer');
 
-let activeClaimSlotType = 'main'; // 'main' or 'sub'
+let activeClaimSlotType = 'main';
 
 // 토스트 메시지
 function showToast(msg) {
@@ -67,7 +68,6 @@ async function initApp() {
   updateUserHeader();
   setupPwa();
 
-  // 메타데이터 및 스냅샷 불러오기
   await loadMetadata();
   await refreshSnapshot();
 
@@ -82,7 +82,6 @@ async function initApp() {
   // 미니게임 초기화
   miniGameInstance = new TransitMiniGame(
     () => {
-      // 미니게임 성공
       showToast('🎉 제동 성공! 전광판 문구를 등록하세요.');
       minigameContainer.classList.add('hidden');
       claimFormContainer.classList.remove('hidden');
@@ -127,26 +126,47 @@ function getStationName(stId) {
   return stId;
 }
 
-// 2. 메타데이터 및 스냅샷 로드
+// 2. 메타데이터 및 스냅샷 로드 (서버 또는 클라이언트 엔진)
 async function loadMetadata() {
-  try {
-    const res = await fetch('/api/meta');
-    globalMeta = await res.json();
+  if (isGitHubPages || !window.fetch) {
+    globalMeta = {
+      lines: window.SUBWAY_DATA.LINES,
+      factions: window.SUBWAY_DATA.FACTIONS,
+      rules: window.SUBWAY_DATA.GAME_RULES
+    };
     renderLineSelector();
     renderFactionSelector();
-  } catch (err) {
-    console.error('메타데이터 로드 실패:', err);
+    return;
   }
+
+  try {
+    const res = await fetch('./api/meta');
+    globalMeta = await res.json();
+  } catch (err) {
+    globalMeta = {
+      lines: window.SUBWAY_DATA.LINES,
+      factions: window.SUBWAY_DATA.FACTIONS,
+      rules: window.SUBWAY_DATA.GAME_RULES
+    };
+  }
+  renderLineSelector();
+  renderFactionSelector();
 }
 
 async function refreshSnapshot() {
-  try {
-    const res = await fetch('/api/stations/snapshot');
-    globalSnapshot = await res.json();
+  if (isGitHubPages) {
+    globalSnapshot = window.clientEngine.getSnapshot();
     renderStationCards();
-  } catch (err) {
-    console.warn('스냅샷 갱신 실패:', err);
+    return;
   }
+
+  try {
+    const res = await fetch('./api/stations/snapshot');
+    globalSnapshot = await res.json();
+  } catch (err) {
+    globalSnapshot = window.clientEngine.getSnapshot();
+  }
+  renderStationCards();
 }
 
 // 3. 노선 탭 렌더링
@@ -197,7 +217,6 @@ function renderStationCards() {
     stationCardsContainer.appendChild(card);
   });
 
-  // 하단 퀵 액션바 상태 업데이트
   updateQuickActionBar();
 }
 
@@ -207,9 +226,7 @@ function createStationCard(st) {
 
   const currentDirData = st.directions[currentActiveDirection] || st.directions[0];
   const main = currentDirData.mainSlot;
-  const isTargetStation = (st.id === currentTargetStationId);
 
-  // 상단 헤더
   const headerHtml = `
     <div class="card-header">
       <div class="station-title-group">
@@ -223,7 +240,6 @@ function createStationCard(st) {
     </div>
   `;
 
-  // 방향 탭
   const dirTabsHtml = `
     <div class="direction-tabs">
       ${Object.entries(st.directions).map(([idx, dir]) => `
@@ -234,7 +250,6 @@ function createStationCard(st) {
     </div>
   `;
 
-  // 메인 전광판 (50자 네온 디스플레이)
   const isProtected = main.isProtected;
   const isGolden = main.isGolden;
   const shieldPercent = Math.min(100, (main.shield / 100) * 100);
@@ -286,10 +301,9 @@ function createStationCard(st) {
     </div>
   `;
 
-  // 서브 슬롯 롤링 (25자)
   const subSlotsHtml = `
     <div class="sub-slots-wrap">
-      ${currentDirData.subSlots.map((s, idx) => `
+      ${currentDirData.subSlots.map((s) => `
         <div class="sub-slot-item">
           <span class="sub-text">${s.hasOwner ? escapeHtml(s.subText) : '서브 슬롯 비어있음'}</span>
           <span class="sub-owner">${s.hasOwner ? `${escapeHtml(s.owner.nickname)} (${s.remainingSec}s)` : '미점령'}</span>
@@ -300,7 +314,6 @@ function createStationCard(st) {
 
   card.innerHTML = headerHtml + dirTabsHtml + mainSlotHtml + subSlotsHtml;
 
-  // 방향 탭 전환 이벤트
   card.querySelectorAll('.dir-tab-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -309,13 +322,11 @@ function createStationCard(st) {
     });
   });
 
-  // 공감(좋아요) 이벤트
   card.querySelector('.btn-like').addEventListener('click', async (e) => {
     e.stopPropagation();
     await handleLike(st.id, currentActiveDirection);
   });
 
-  // 공격/점령 버튼 이벤트
   const actionBtn = card.querySelector('.btn-slot-action');
   if (actionBtn) {
     actionBtn.addEventListener('click', (e) => {
@@ -326,7 +337,6 @@ function createStationCard(st) {
     });
   }
 
-  // 카드 클릭 시 퀵 바에 해당 역 선택
   card.addEventListener('click', () => {
     currentTargetStationId = st.id;
     updateQuickActionBar();
@@ -337,8 +347,21 @@ function createStationCard(st) {
 
 // 5. 공감(좋아요) 처리
 async function handleLike(stationId, dirIdx) {
+  if (isGitHubPages) {
+    const res = window.clientEngine.likeSlot(stationId, dirIdx);
+    if (res.success) {
+      userState.addPoints(5);
+      updateUserHeader();
+      showToast(`❤️ ${res.message} (+5 P 획득)`);
+      refreshSnapshot();
+    } else {
+      showToast(`⚠️ ${res.message}`);
+    }
+    return;
+  }
+
   try {
-    const res = await fetch('/api/stations/like', {
+    const res = await fetch('./api/stations/like', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -358,7 +381,9 @@ async function handleLike(stationId, dirIdx) {
       showToast(`⚠️ ${data.message}`);
     }
   } catch (err) {
-    showToast('공감 요청 실패');
+    const res = window.clientEngine.likeSlot(stationId, dirIdx);
+    showToast(res.message);
+    refreshSnapshot();
   }
 }
 
@@ -379,28 +404,9 @@ function updateQuickActionBar() {
 // 7. 정차역 체크인 & 미션 모달 열기
 async function handleQuickCheckin() {
   btnQuickCheckin.disabled = true;
-  try {
-    const res = await fetch('/api/stations/checkin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        uuid: userState.user.uuid,
-        token: userState.user.token,
-        stationId: currentTargetStationId
-      })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast(data.message);
-      openMissionModal();
-    } else {
-      showToast(data.message);
-    }
-  } catch (err) {
-    showToast('체크인 통신 실패');
-  } finally {
-    btnQuickCheckin.disabled = false;
-  }
+  showToast(`[${getStationName(currentTargetStationId)}] 체크인 완료! 미션을 시작합니다.`);
+  openMissionModal();
+  btnQuickCheckin.disabled = false;
 }
 
 function openMissionModal() {
@@ -409,9 +415,7 @@ function openMissionModal() {
   claimFormContainer.classList.add('hidden');
   modalMission.classList.remove('hidden');
 
-  // 프리셋 셀렉터 초기화
   updatePresetSelector();
-  // 미니게임 시작
   miniGameInstance.start();
 }
 
@@ -439,7 +443,22 @@ async function submitClaim() {
         return;
       }
 
-      const res = await fetch('/api/stations/claim/main', {
+      if (isGitHubPages) {
+        const data = window.clientEngine.claimMainSlot(currentTargetStationId, currentActiveDirection, userState.user, title, body);
+        if (data.success) {
+          userState.addPoints(50);
+          updateUserHeader();
+          showToast(`🎉 ${data.message} (+50 P 획득)`);
+          modalMission.classList.add('hidden');
+          refreshSnapshot();
+        } else {
+          showToast(`⚠️ ${data.message}`);
+        }
+        btnSubmitClaim.disabled = false;
+        return;
+      }
+
+      const res = await fetch('./api/stations/claim/main', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -464,7 +483,6 @@ async function submitClaim() {
         showToast(`⚠️ ${data.message}`);
       }
     } else {
-      // 서브 슬롯 등록 (25자)
       const subText = inputSubText.value.trim();
       if (!subText) {
         showToast('서브 문구를 입력하세요.');
@@ -472,7 +490,22 @@ async function submitClaim() {
         return;
       }
 
-      const res = await fetch('/api/stations/claim/sub', {
+      if (isGitHubPages) {
+        const data = window.clientEngine.claimSubSlot(currentTargetStationId, currentActiveDirection, userState.user, subText);
+        if (data.success) {
+          userState.addPoints(20);
+          updateUserHeader();
+          showToast(`🎉 ${data.message} (+20 P 획득)`);
+          modalMission.classList.add('hidden');
+          refreshSnapshot();
+        } else {
+          showToast(`⚠️ ${data.message}`);
+        }
+        btnSubmitClaim.disabled = false;
+        return;
+      }
+
+      const res = await fetch('./api/stations/claim/sub', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -497,7 +530,7 @@ async function submitClaim() {
       }
     }
   } catch (err) {
-    showToast('점령 등록 실패');
+    showToast('점령 처리 중 오류가 발생했습니다.');
   } finally {
     btnSubmitClaim.disabled = false;
   }
@@ -554,27 +587,22 @@ function renderPresetManageList() {
 
 // 10. 이벤트 바인딩
 function bindEventListeners() {
-  // PWA 알림 닫기
   btnCloseNotice.addEventListener('click', () => {
     pwaNotice.style.display = 'none';
   });
 
-  // 검색 인풋
   stationSearchInput.addEventListener('input', () => {
     renderStationCards();
   });
 
-  // 퀵 체크인 버튼
   btnQuickCheckin.addEventListener('click', handleQuickCheckin);
 
-  // 가상 탑승 진행 버튼
   btnVirtualTransit.addEventListener('click', () => {
     if (simulatorInstance) {
       simulatorInstance.nextStation();
     }
   });
 
-  // 모달 닫기
   btnCloseMission.addEventListener('click', () => {
     miniGameInstance.stop();
     modalMission.classList.add('hidden');
@@ -591,7 +619,6 @@ function bindEventListeners() {
     modalProfile.classList.remove('hidden');
   });
 
-  // 닉네임 저장
   document.getElementById('btnSaveNickname').addEventListener('click', () => {
     const newName = document.getElementById('inputNickname').value;
     if (newName.trim()) {
@@ -601,7 +628,6 @@ function bindEventListeners() {
     }
   });
 
-  // 슬롯 탭 (메인 50자 vs 서브 25자)
   tabMainSlot.addEventListener('click', () => {
     activeClaimSlotType = 'main';
     tabMainSlot.classList.add('active');
@@ -618,7 +644,6 @@ function bindEventListeners() {
     mainSlotInputs.classList.add('hidden');
   });
 
-  // 50자 실시간 카운터 및 미리보기
   inputMainTitle.addEventListener('input', () => {
     const val = inputMainTitle.value;
     countMainTitle.textContent = `${val.length}/15`;
@@ -636,7 +661,6 @@ function bindEventListeners() {
     countSubText.textContent = `${val.length}/25`;
   });
 
-  // 프리셋 선택 시 자동 완성
   selectPreset.addEventListener('change', () => {
     const idx = selectPreset.value;
     if (idx !== '' && userState.user.presets[idx]) {
@@ -650,10 +674,8 @@ function bindEventListeners() {
     }
   });
 
-  // 점령 제출
   btnSubmitClaim.addEventListener('click', submitClaim);
 
-  // 복구 코드 내보내기/가져오기
   const btnExport = document.getElementById('btnExportCode');
   const btnImport = document.getElementById('btnImportCode');
   const textBackup = document.getElementById('textBackupCode');
@@ -687,7 +709,6 @@ function bindEventListeners() {
     }
   });
 
-  // 새 프리셋 추가
   document.getElementById('btnAddPreset').addEventListener('click', () => {
     const t = prompt('헤드라인(최대 15자):');
     if (!t) return;
@@ -703,8 +724,8 @@ function bindEventListeners() {
 function setupPwa() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-        // console.log('SW 등록 성공:', reg.scope);
+      navigator.serviceWorker.register('./sw.js').then(reg => {
+        // console.log('SW 등록 성공');
       }).catch(err => {
         // console.warn('SW 등록 실패:', err);
       });
@@ -712,7 +733,6 @@ function setupPwa() {
   }
 }
 
-// 헬퍼 함수
 function getLineColor(lineId) {
   if (globalMeta && globalMeta.lines && globalMeta.lines[lineId]) {
     return globalMeta.lines[lineId].color;
@@ -738,5 +758,4 @@ function escapeHtml(str) {
   }[tag] || tag));
 }
 
-// 부팅 시작
 document.addEventListener('DOMContentLoaded', initApp);
