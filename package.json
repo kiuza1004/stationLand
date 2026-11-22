@@ -1,0 +1,25 @@
+{
+  "name": "station-land",
+  "version": "1.0.0",
+  "description": "서울 지하철 정차역 점령 및 50자 전광판 실시간 웹앱 게임",
+  "main": "server/app.js",
+  "scripts": {
+    "start": "node server/app.js",
+    "dev": "node --watch server/app.js",
+    "test": "node test/test_system.js"
+  },
+  "keywords": [
+    "subway",
+    "game",
+    "seoul-metro",
+    "in-memory",
+    "pwa",
+    "zero-cost"
+  ],
+  "author": "kiuza1004",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

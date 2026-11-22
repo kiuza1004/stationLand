@@ -1,0 +1,183 @@
+/**
+ * 서울 지하철 주요 노선 및 대표 역 데이터
+ * 1~9호선, 신분당선, 수인분당선 등의 핵심 역 및 환승 구조 정의
+ */
+
+const LINES = {
+  'line2': {
+    id: 'line2',
+    name: '2호선',
+    color: '#00A84D',
+    type: 'circular',
+    directions: ['내선순환', '외선순환']
+  },
+  'line1': {
+    id: 'line1',
+    name: '1호선',
+    color: '#0052A4',
+    type: 'linear',
+    directions: ['상행 (청량리/소요산)', '하행 (신도림/인천/수원)']
+  },
+  'line3': {
+    id: 'line3',
+    name: '3호선',
+    color: '#EF7C1C',
+    type: 'linear',
+    directions: ['상행 (대화/구파발)', '하행 (양재/오금)']
+  },
+  'line4': {
+    id: 'line4',
+    name: '4호선',
+    color: '#00A5DE',
+    type: 'linear',
+    directions: ['상행 (당고개/진접)', '하행 (사당/오이도)']
+  },
+  'line5': {
+    id: 'line5',
+    name: '5호선',
+    color: '#996CAC',
+    type: 'linear',
+    directions: ['상행 (방화)', '하행 (하남검단산/마천)']
+  },
+  'line7': {
+    id: 'line7',
+    name: '7호선',
+    color: '#747F00',
+    type: 'linear',
+    directions: ['상행 (장암/도봉산)', '하행 (부평구청/석남)']
+  },
+  'line9': {
+    id: 'line9',
+    name: '9호선',
+    color: '#BDB092',
+    type: 'linear',
+    directions: ['상행 (개화/김포공항)', '하행 (여의도/중앙보훈병원)']
+  },
+  'shinbundang': {
+    id: 'shinbundang',
+    name: '신분당선',
+    color: '#D4003B',
+    type: 'linear',
+    directions: ['상행 (신사/강남)', '하행 (판교/광교)']
+  }
+};
+
+const STATIONS = [
+  // 2호선 주요 순환역
+  { id: '201', name: '시청', line: 'line2', transfers: ['line1'], isHub: true },
+  { id: '202', name: '을지로입구', line: 'line2', transfers: [] },
+  { id: '203', name: '을지로3가', line: 'line2', transfers: ['line3'], isHub: true },
+  { id: '204', name: '을지로4가', line: 'line2', transfers: ['line5'], isHub: true },
+  { id: '205', name: '동대문역사문화공원', line: 'line2', transfers: ['line4', 'line5'], isHub: true },
+  { id: '206', name: '신당', line: 'line2', transfers: ['line6'] },
+  { id: '208', name: '왕십리', line: 'line2', transfers: ['line5', 'suin'], isHub: true },
+  { id: '211', name: '성수', line: 'line2', transfers: [], isHub: true },
+  { id: '212', name: '건대입구', line: 'line2', transfers: ['line7'], isHub: true },
+  { id: '214', name: '강변', line: 'line2', transfers: [] },
+  { id: '216', name: '잠실', line: 'line2', transfers: ['line8'], isHub: true, crowded: true },
+  { id: '218', name: '종합운동장', line: 'line2', transfers: ['line9'], isHub: true },
+  { id: '219', name: '삼성', line: 'line2', transfers: [], isHub: true, crowded: true },
+  { id: '220', name: '선릉', line: 'line2', transfers: ['suin'], isHub: true },
+  { id: '221', name: '역삼', line: 'line2', transfers: [] },
+  { id: '222', name: '강남', line: 'line2', transfers: ['shinbundang'], isHub: true, crowded: true },
+  { id: '223', name: '교대', line: 'line2', transfers: ['line3'], isHub: true },
+  { id: '224', name: '서초', line: 'line2', transfers: [] },
+  { id: '226', name: '사당', line: 'line2', transfers: ['line4'], isHub: true, crowded: true },
+  { id: '228', name: '서울대입구', line: 'line2', transfers: [] },
+  { id: '230', name: '신림', line: 'line2', transfers: [], isHub: true, crowded: true },
+  { id: '232', name: '구로디지털단지', line: 'line2', transfers: [], crowded: true },
+  { id: '234', name: '신도림', line: 'line2', transfers: ['line1'], isHub: true, crowded: true },
+  { id: '235', name: '문래', line: 'line2', transfers: [] },
+  { id: '236', name: '영등포구청', line: 'line2', transfers: ['line5'], isHub: true },
+  { id: '237', name: '당산', line: 'line2', transfers: ['line9'], isHub: true },
+  { id: '238', name: '합정', line: 'line2', transfers: ['line6'], isHub: true },
+  { id: '239', name: '홍대입구', line: 'line2', transfers: ['arex', 'gyeongui'], isHub: true, crowded: true },
+  { id: '240', name: '신촌', line: 'line2', transfers: [], isHub: true },
+  { id: '241', name: '이대', line: 'line2', transfers: [] },
+  { id: '243', name: '충정로', line: 'line2', transfers: ['line5'] },
+
+  // 1호선 주요 역
+  { id: '101', name: '서울역', line: 'line1', transfers: ['line4', 'arex', 'gyeongui'], isHub: true, crowded: true },
+  { id: '102', name: '시청(1호선)', line: 'line1', transfers: ['line2'], isHub: true },
+  { id: '103', name: '종각', line: 'line1', transfers: [], isHub: true },
+  { id: '104', name: '종로3가', line: 'line1', transfers: ['line3', 'line5'], isHub: true },
+  { id: '105', name: '동대문', line: 'line1', transfers: ['line4'], isHub: true },
+  { id: '106', name: '신설동', line: 'line1', transfers: ['line2'] },
+  { id: '107', name: '청량리', line: 'line1', transfers: ['suin', 'gyeongui'], isHub: true },
+  { id: '108', name: '용산', line: 'line1', transfers: ['gyeongui'], isHub: true },
+  { id: '109', name: '노량진', line: 'line1', transfers: ['line9'], isHub: true },
+  { id: '110', name: '영등포', line: 'line1', transfers: [], isHub: true, crowded: true },
+  { id: '111', name: '신도림(1호선)', line: 'line1', transfers: ['line2'], isHub: true, crowded: true },
+
+  // 3호선 주요 역
+  { id: '301', name: '경복궁', line: 'line3', transfers: [] },
+  { id: '302', name: '안국', line: 'line3', transfers: [] },
+  { id: '303', name: '을지로3가(3호선)', line: 'line3', transfers: ['line2'], isHub: true },
+  { id: '304', name: '충무로', line: 'line3', transfers: ['line4'], isHub: true },
+  { id: '305', name: '동대입구', line: 'line3', transfers: [] },
+  { id: '306', name: '약수', line: 'line3', transfers: ['line6'], isHub: true },
+  { id: '307', name: '옥수', line: 'line3', transfers: ['gyeongui'], isHub: true },
+  { id: '308', name: '압구정', line: 'line3', transfers: [], isHub: true },
+  { id: '309', name: '신사', line: 'line3', transfers: ['shinbundang'], isHub: true },
+  { id: '310', name: '고속터미널', line: 'line3', transfers: ['line7', 'line9'], isHub: true, crowded: true },
+  { id: '311', name: '교대(3호선)', line: 'line3', transfers: ['line2'], isHub: true },
+  { id: '312', name: '양재', line: 'line3', transfers: ['shinbundang'], isHub: true },
+
+  // 4호선 주요 역
+  { id: '401', name: '혜화', line: 'line4', transfers: [] },
+  { id: '402', name: '명동', line: 'line4', transfers: [], isHub: true, crowded: true },
+  { id: '403', name: '회현', line: 'line4', transfers: [] },
+  { id: '404', name: '삼각지', line: 'line4', transfers: ['line6'], isHub: true },
+  { id: '405', name: '이촌', line: 'line4', transfers: ['gyeongui'], isHub: true },
+  { id: '406', name: '동작', line: 'line4', transfers: ['line9'], isHub: true },
+  { id: '407', name: '사당(4호선)', line: 'line4', transfers: ['line2'], isHub: true, crowded: true },
+
+  // 5호선 주요 역
+  { id: '501', name: '여의도', line: 'line5', transfers: ['line9'], isHub: true, crowded: true },
+  { id: '502', name: '마포', line: 'line5', transfers: [] },
+  { id: '503', name: '공덕', line: 'line5', transfers: ['line6', 'arex', 'gyeongui'], isHub: true, crowded: true },
+  { id: '504', name: '광화문', line: 'line5', transfers: [], isHub: true, crowded: true },
+
+  // 7호선 주요 역
+  { id: '701', name: '건대입구(7호선)', line: 'line7', transfers: ['line2'], isHub: true },
+  { id: '702', name: '청담', line: 'line7', transfers: [] },
+  { id: '703', name: '강남구청', line: 'line7', transfers: ['suin'], isHub: true },
+  { id: '704', name: '논현', line: 'line7', transfers: ['shinbundang'], isHub: true },
+  { id: '705', name: '학동', line: 'line7', transfers: [] },
+  { id: '706', name: '고속터미널(7호선)', line: 'line7', transfers: ['line3', 'line9'], isHub: true, crowded: true },
+  { id: '707', name: '총신대입구(이수)', line: 'line7', transfers: ['line4'], isHub: true },
+
+  // 9호선 주요 역
+  { id: '901', name: '김포공항', line: 'line9', transfers: ['line5', 'arex'], isHub: true },
+  { id: '902', name: '당산(9호선)', line: 'line9', transfers: ['line2'], isHub: true },
+  { id: '903', name: '국회의사당', line: 'line9', transfers: [] },
+  { id: '904', name: '여의도(9호선)', line: 'line9', transfers: ['line5'], isHub: true, crowded: true },
+  { id: '905', name: '노량진(9호선)', line: 'line9', transfers: ['line1'], isHub: true },
+  { id: '906', name: '고속터미널(9호선)', line: 'line9', transfers: ['line3', 'line7'], isHub: true, crowded: true },
+  { id: '907', name: '신논현', line: 'line9', transfers: ['shinbundang'], isHub: true, crowded: true },
+  { id: '908', name: '선정릉', line: 'line9', transfers: ['suin'], isHub: true },
+  { id: '909', name: '봉은사', line: 'line9', transfers: [] },
+  { id: '910', name: '종합운동장(9호선)', line: 'line9', transfers: ['line2'], isHub: true },
+
+  // 신분당선
+  { id: 'S01', name: '신사(신분당)', line: 'shinbundang', transfers: ['line3'], isHub: true },
+  { id: 'S02', name: '논현(신분당)', line: 'shinbundang', transfers: ['line7'], isHub: true },
+  { id: 'S03', name: '신논현(신분당)', line: 'shinbundang', transfers: ['line9'], isHub: true },
+  { id: 'S04', name: '강남(신분당)', line: 'shinbundang', transfers: ['line2'], isHub: true, crowded: true },
+  { id: 'S05', name: '양재(신분당)', line: 'shinbundang', transfers: ['line3'], isHub: true },
+  { id: 'S06', name: '판교', line: 'shinbundang', transfers: [], isHub: true, crowded: true }
+];
+
+const FACTIONS = [
+  { id: 'line2_crew', name: '2호선 순환단', color: '#00A84D', badge: '🟢', slogan: '끝나지 않는 순환의 힘' },
+  { id: 'line9_rush', name: '9호선 급행연합', color: '#BDB092', badge: '🟡', slogan: '빛보다 빠른 황금 급행' },
+  { id: 'line1_pioneer', name: '1호선 개척자', color: '#0052A4', badge: '🔵', slogan: '대한민국 철도의 근본' },
+  { id: 'night_escape', name: '야근탈출단', color: '#996CAC', badge: '🟣', slogan: '정시 퇴근은 우리의 권리' },
+  { id: 'salaried_union', name: '직장인연합', color: '#EF7C1C', badge: '💼', slogan: '내일의 월급을 향하여' }
+];
+
+module.exports = {
+  LINES,
+  STATIONS,
+  FACTIONS
+};

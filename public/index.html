@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>StationLand - 서울 지하철 실시간 전광판 점령전</title>
+  
+  <!-- PWA 메타 태그 -->
+  <meta name="theme-color" content="#0d1117">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚇</text></svg>">
+  
+  <!-- CSS -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- 헤더 -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="logo">
+          <span class="logo-icon">🚇</span>
+          <span class="logo-text">StationLand</span>
+        </div>
+        <div class="user-badge" id="btnOpenProfile">
+          <span class="user-faction-badge" id="headerFactionBadge">🟢</span>
+          <span class="user-name" id="headerUserName">승객</span>
+          <span class="user-pts" id="headerUserPoints">0 P</span>
+        </div>
+      </div>
+      
+      <!-- 현재 가상/실제 탑승 상태 배너 -->
+      <div class="transit-banner">
+        <div class="transit-info">
+          <span class="pulse-indicator"></span>
+          <span class="transit-status" id="transitStatusText">현재 탑승: 2호선 내선순환</span>
+        </div>
+        <div class="transit-controls">
+          <button id="btnVirtualTransit" class="btn-sm btn-outline">🚆 가상 탑승 진행</button>
+        </div>
+      </div>
+      
+      <!-- PWA 캐시 가이드 알림창 -->
+      <div class="pwa-notice" id="pwaNotice">
+        <span>💡 앱 업데이트 시 캐시가 꼬일 수 있으니 꼭 기존 앱을 완전히 삭제하고 설치하셔야 합니다.</span>
+        <button class="notice-close" id="btnCloseNotice">&times;</button>
+      </div>
+    </header>
+
+    <!-- 노선 필터 탭 -->
+    <nav class="line-selector" id="lineSelector">
+      <!-- 동적 생성: 2호선, 1호선, 3호선, 9호선 등 -->
+    </nav>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="station-list-container">
+      <div class="search-bar-wrap">
+        <input type="text" id="stationSearchInput" placeholder="역 이름 검색 (예: 강남, 홍대입구, 신도림)" autocomplete="off">
+        <span class="search-icon">🔍</span>
+      </div>
+
+      <!-- 정차역 목록 카드 뷰 -->
+      <div class="station-cards" id="stationCards">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>지하철 전광판 상태를 동기화하는 중...</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- 하단 빠른 액션 바 (정차역 체크인 & 미니게임) -->
+    <footer class="quick-action-bar">
+      <div class="current-station-summary">
+        <div class="current-st-name" id="quickStationName">역 선택 대기</div>
+        <div class="current-st-state" id="quickStationState">탑승 중인 역을 선택하세요</div>
+      </div>
+      <button class="btn-action btn-checkin" id="btnQuickCheckin" disabled>
+        <span class="btn-icon">⚡</span>
+        <span class="btn-text">정차역 체크인</span>
+      </button>
+    </footer>
+
+    <!-- 1. 미니게임 & 점령 모달 -->
+    <div class="modal-backdrop hidden" id="modalMission">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modalMissionTitle">정차 제동 타이밍 미션</h3>
+          <button class="modal-close" id="btnCloseMission">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="minigameContainer">
+            <p class="minigame-guide">이동 중 제동 레버를 조작하여 목표 구역(초록 존)에 정확히 멈추세요!</p>
+            <div class="game-track">
+              <div class="target-zone" id="gameTargetZone"></div>
+              <div class="train-cursor" id="gameTrainCursor">🚆</div>
+            </div>
+            <div class="game-controls">
+              <button class="btn-lg btn-success" id="btnBrakeAction">제동 브레이크 걸기!</button>
+            </div>
+            <div class="game-timer" id="gameTimerText">남은 시간: 10초</div>
+          </div>
+
+          <!-- 미션 성공 후 전광판 작성 화면 -->
+          <div id="claimFormContainer" class="hidden">
+            <div class="claim-form-header">
+              <span class="badge-success">미션 클리어!</span>
+              <h4>전광판 문구 등록</h4>
+            </div>
+
+            <!-- 슬롯 선택 탭 -->
+            <div class="slot-tab-group">
+              <button class="slot-tab active" id="tabMainSlot">메인 전광판 (50자)</button>
+              <button class="slot-tab" id="tabSubSlot">서브 전광판 (25자)</button>
+            </div>
+
+            <!-- 프리셋 선택기 -->
+            <div class="preset-selector-wrap">
+              <label>사전 작성 프리셋 불러오기:</label>
+              <select id="selectPreset">
+                <option value="">-- 프리셋 선택 --</option>
+              </select>
+            </div>
+
+            <!-- 메인 슬롯 입력 폼 (제목 15자 + 본문 35자 = 총 50자) -->
+            <div id="mainSlotInputs">
+              <div class="input-group">
+                <div class="label-row">
+                  <label for="inputMainTitle">네온 헤드라인 (강조 15자)</label>
+                  <span class="char-count" id="countMainTitle">0/15</span>
+                </div>
+                <input type="text" id="inputMainTitle" maxlength="15" placeholder="예: 🥐 강남역 4번출구 소금빵 1+1">
+              </div>
+
+              <div class="input-group">
+                <div class="label-row">
+                  <label for="inputMainBody">상세 내용 및 혜택 (35자)</label>
+                  <span class="char-count" id="countMainBody">0/35</span>
+                </div>
+                <textarea id="inputMainBody" maxlength="35" rows="2" placeholder="예: 오늘 저녁 8시까지 매장 카운터에 이 화면을 보여주시면 즉시 증정!"></textarea>
+              </div>
+
+              <div class="preview-box">
+                <div class="preview-tag">메인 전광판 실시간 미리보기</div>
+                <div class="preview-neon-title" id="previewNeonTitle">헤드라인이 노출됩니다</div>
+                <div class="preview-sub-body" id="previewSubBody">상세 내용이 노출됩니다</div>
+              </div>
+            </div>
+
+            <!-- 서브 슬롯 입력 폼 (25자) -->
+            <div id="subSlotInputs" class="hidden">
+              <div class="input-group">
+                <div class="label-row">
+                  <label for="inputSubText">서브 응원/한마디 (25자)</label>
+                  <span class="char-count" id="countSubText">0/25</span>
+                </div>
+                <input type="text" id="inputSubText" maxlength="25" placeholder="예: 오늘 퇴근길도 다들 수고하셨습니다!">
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn-lg btn-primary" id="btnSubmitClaim">전광판 등록 (점령 확정)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 프로필 & 진영 & 복구코드 & 프리셋 관리 모달 -->
+    <div class="modal-backdrop hidden" id="modalProfile">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>승객 프로필 및 설정</h3>
+          <button class="modal-close" id="btnCloseProfile">&times;</button>
+        </div>
+        <div class="modal-body profile-body">
+          <!-- 닉네임 설정 -->
+          <div class="setting-section">
+            <label>닉네임 (최대 10자)</label>
+            <div class="row-flex">
+              <input type="text" id="inputNickname" maxlength="10">
+              <button class="btn-md btn-outline" id="btnSaveNickname">저장</button>
+            </div>
+          </div>
+
+          <!-- 오픈 진영 선택 -->
+          <div class="setting-section">
+            <label>소속 오픈 진영</label>
+            <div class="faction-list" id="factionSelectorList">
+              <!-- 동적 생성 -->
+            </div>
+          </div>
+
+          <!-- 문구 프리셋 관리 (3개) -->
+          <div class="setting-section">
+            <label>50자 문구 사전 프리셋 (이동 중 원터치 적용)</label>
+            <div id="presetManageList">
+              <!-- 동적 생성 -->
+            </div>
+            <button class="btn-sm btn-outline mt-2" id="btnAddPreset">+ 새 프리셋 추가</button>
+          </div>
+
+          <!-- 복구 코드 (무DB/무로그인 기기 복원) -->
+          <div class="setting-section">
+            <label>기기 변경 복구 코드 (Export / Import)</label>
+            <p class="section-desc">로그인 없이 기기를 변경하거나 캐시 삭제 시 복원할 수 있는 암호화 코드입니다.</p>
+            <div class="row-flex">
+              <button class="btn-sm btn-primary" id="btnExportCode">복구 코드 생성(복사)</button>
+              <button class="btn-sm btn-outline" id="btnImportCode">복구 코드 붙여넣기</button>
+            </div>
+            <textarea id="textBackupCode" class="hidden mt-2" rows="3" readonly placeholder="복구 코드가 여기에 표시됩니다"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 토스트 알림 메시지 -->
+    <div id="toastContainer" class="toast-container"></div>
+  </div>
+
+  <!-- JS 스크립트 모듈 -->
+  <script src="/js/state.js"></script>
+  <script src="/js/minigame.js"></script>
+  <script src="/js/simulator.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
