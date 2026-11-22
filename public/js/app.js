@@ -9,7 +9,6 @@ let currentActiveDirection = 0;
 let currentTargetStationId = '222'; // 기본 강남역
 let miniGameInstance = null;
 let simulatorInstance = null;
-const isGitHubPages = window.location.hostname.includes('github.io');
 
 // DOM 요소 참조
 const lineSelector = document.getElementById('lineSelector');
@@ -128,7 +127,7 @@ function getStationName(stId) {
 
 // 2. 메타데이터 및 스냅샷 로드 (서버 또는 클라이언트 엔진)
 async function loadMetadata() {
-  if (isGitHubPages || !window.fetch) {
+  if (window.isGitHubPages || !window.fetch) {
     globalMeta = {
       lines: window.SUBWAY_DATA.LINES,
       factions: window.SUBWAY_DATA.FACTIONS,
@@ -154,7 +153,7 @@ async function loadMetadata() {
 }
 
 async function refreshSnapshot() {
-  if (isGitHubPages) {
+  if (window.isGitHubPages) {
     globalSnapshot = window.clientEngine.getSnapshot();
     renderStationCards();
     return;
@@ -322,10 +321,13 @@ function createStationCard(st) {
     });
   });
 
-  card.querySelector('.btn-like').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await handleLike(st.id, currentActiveDirection);
-  });
+  const likeBtn = card.querySelector('.btn-like');
+  if (likeBtn) {
+    likeBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await handleLike(st.id, currentActiveDirection);
+    });
+  }
 
   const actionBtn = card.querySelector('.btn-slot-action');
   if (actionBtn) {
@@ -347,7 +349,7 @@ function createStationCard(st) {
 
 // 5. 공감(좋아요) 처리
 async function handleLike(stationId, dirIdx) {
-  if (isGitHubPages) {
+  if (window.isGitHubPages) {
     const res = window.clientEngine.likeSlot(stationId, dirIdx);
     if (res.success) {
       userState.addPoints(5);
@@ -443,7 +445,7 @@ async function submitClaim() {
         return;
       }
 
-      if (isGitHubPages) {
+      if (window.isGitHubPages) {
         const data = window.clientEngine.claimMainSlot(currentTargetStationId, currentActiveDirection, userState.user, title, body);
         if (data.success) {
           userState.addPoints(50);
@@ -490,7 +492,7 @@ async function submitClaim() {
         return;
       }
 
-      if (isGitHubPages) {
+      if (window.isGitHubPages) {
         const data = window.clientEngine.claimSubSlot(currentTargetStationId, currentActiveDirection, userState.user, subText);
         if (data.success) {
           userState.addPoints(20);
@@ -587,137 +589,177 @@ function renderPresetManageList() {
 
 // 10. 이벤트 바인딩
 function bindEventListeners() {
-  btnCloseNotice.addEventListener('click', () => {
-    pwaNotice.style.display = 'none';
-  });
+  if (btnCloseNotice && pwaNotice) {
+    btnCloseNotice.addEventListener('click', () => {
+      pwaNotice.style.display = 'none';
+    });
+  }
 
-  stationSearchInput.addEventListener('input', () => {
-    renderStationCards();
-  });
+  if (stationSearchInput) {
+    stationSearchInput.addEventListener('input', () => {
+      renderStationCards();
+    });
+  }
 
-  btnQuickCheckin.addEventListener('click', handleQuickCheckin);
+  if (btnQuickCheckin) {
+    btnQuickCheckin.addEventListener('click', handleQuickCheckin);
+  }
 
-  btnVirtualTransit.addEventListener('click', () => {
-    if (simulatorInstance) {
-      simulatorInstance.nextStation();
-    }
-  });
+  if (btnVirtualTransit) {
+    btnVirtualTransit.addEventListener('click', () => {
+      if (simulatorInstance) {
+        simulatorInstance.nextStation();
+      }
+    });
+  }
 
-  btnCloseMission.addEventListener('click', () => {
-    miniGameInstance.stop();
-    modalMission.classList.add('hidden');
-  });
+  if (btnCloseMission && modalMission) {
+    btnCloseMission.addEventListener('click', () => {
+      if (miniGameInstance) miniGameInstance.stop();
+      modalMission.classList.add('hidden');
+    });
+  }
 
-  btnCloseProfile.addEventListener('click', () => {
-    modalProfile.classList.add('hidden');
-  });
+  if (btnCloseProfile && modalProfile) {
+    btnCloseProfile.addEventListener('click', () => {
+      modalProfile.classList.add('hidden');
+    });
+  }
 
-  btnOpenProfile.addEventListener('click', () => {
-    document.getElementById('inputNickname').value = userState.user.nickname;
-    renderFactionSelector();
-    renderPresetManageList();
-    modalProfile.classList.remove('hidden');
-  });
+  if (btnOpenProfile && modalProfile) {
+    btnOpenProfile.addEventListener('click', () => {
+      const inputNick = document.getElementById('inputNickname');
+      if (inputNick) inputNick.value = userState.user.nickname;
+      renderFactionSelector();
+      renderPresetManageList();
+      modalProfile.classList.remove('hidden');
+    });
+  }
 
-  document.getElementById('btnSaveNickname').addEventListener('click', () => {
-    const newName = document.getElementById('inputNickname').value;
-    if (newName.trim()) {
-      userState.setNickname(newName);
-      updateUserHeader();
-      showToast('닉네임이 저장되었습니다.');
-    }
-  });
+  const btnSaveNick = document.getElementById('btnSaveNickname');
+  if (btnSaveNick) {
+    btnSaveNick.addEventListener('click', () => {
+      const inputNick = document.getElementById('inputNickname');
+      const newName = inputNick ? inputNick.value : '';
+      if (newName.trim()) {
+        userState.setNickname(newName);
+        updateUserHeader();
+        showToast('닉네임이 저장되었습니다.');
+      }
+    });
+  }
 
-  tabMainSlot.addEventListener('click', () => {
-    activeClaimSlotType = 'main';
-    tabMainSlot.classList.add('active');
-    tabSubSlot.classList.remove('active');
-    mainSlotInputs.classList.remove('hidden');
-    subSlotInputs.classList.add('hidden');
-  });
+  if (tabMainSlot) {
+    tabMainSlot.addEventListener('click', () => {
+      activeClaimSlotType = 'main';
+      tabMainSlot.classList.add('active');
+      if (tabSubSlot) tabSubSlot.classList.remove('active');
+      if (mainSlotInputs) mainSlotInputs.classList.remove('hidden');
+      if (subSlotInputs) subSlotInputs.classList.add('hidden');
+    });
+  }
 
-  tabSubSlot.addEventListener('click', () => {
-    activeClaimSlotType = 'sub';
-    tabSubSlot.classList.add('active');
-    tabMainSlot.classList.remove('active');
-    subSlotInputs.classList.remove('hidden');
-    mainSlotInputs.classList.add('hidden');
-  });
+  if (tabSubSlot) {
+    tabSubSlot.addEventListener('click', () => {
+      activeClaimSlotType = 'sub';
+      tabSubSlot.classList.add('active');
+      if (tabMainSlot) tabMainSlot.classList.remove('active');
+      if (subSlotInputs) subSlotInputs.classList.remove('hidden');
+      if (mainSlotInputs) mainSlotInputs.classList.add('hidden');
+    });
+  }
 
-  inputMainTitle.addEventListener('input', () => {
-    const val = inputMainTitle.value;
-    countMainTitle.textContent = `${val.length}/15`;
-    previewNeonTitle.textContent = val || '헤드라인이 노출됩니다';
-  });
+  if (inputMainTitle) {
+    inputMainTitle.addEventListener('input', () => {
+      const val = inputMainTitle.value;
+      if (countMainTitle) countMainTitle.textContent = `${val.length}/15`;
+      if (previewNeonTitle) previewNeonTitle.textContent = val || '헤드라인이 노출됩니다';
+    });
+  }
 
-  inputMainBody.addEventListener('input', () => {
-    const val = inputMainBody.value;
-    countMainBody.textContent = `${val.length}/35`;
-    previewSubBody.textContent = val || '상세 내용이 노출됩니다';
-  });
+  if (inputMainBody) {
+    inputMainBody.addEventListener('input', () => {
+      const val = inputMainBody.value;
+      if (countMainBody) countMainBody.textContent = `${val.length}/35`;
+      if (previewSubBody) previewSubBody.textContent = val || '상세 내용이 노출됩니다';
+    });
+  }
 
-  inputSubText.addEventListener('input', () => {
-    const val = inputSubText.value;
-    countSubText.textContent = `${val.length}/25`;
-  });
+  if (inputSubText) {
+    inputSubText.addEventListener('input', () => {
+      const val = inputSubText.value;
+      if (countSubText) countSubText.textContent = `${val.length}/25`;
+    });
+  }
 
-  selectPreset.addEventListener('change', () => {
-    const idx = selectPreset.value;
-    if (idx !== '' && userState.user.presets[idx]) {
-      const p = userState.user.presets[idx];
-      inputMainTitle.value = p.title;
-      inputMainBody.value = p.body;
-      countMainTitle.textContent = `${p.title.length}/15`;
-      countMainBody.textContent = `${p.body.length}/35`;
-      previewNeonTitle.textContent = p.title;
-      previewSubBody.textContent = p.body;
-    }
-  });
+  if (selectPreset) {
+    selectPreset.addEventListener('change', () => {
+      const idx = selectPreset.value;
+      if (idx !== '' && userState.user.presets[idx]) {
+        const p = userState.user.presets[idx];
+        if (inputMainTitle) inputMainTitle.value = p.title;
+        if (inputMainBody) inputMainBody.value = p.body;
+        if (countMainTitle) countMainTitle.textContent = `${p.title.length}/15`;
+        if (countMainBody) countMainBody.textContent = `${p.body.length}/35`;
+        if (previewNeonTitle) previewNeonTitle.textContent = p.title;
+        if (previewSubBody) previewSubBody.textContent = p.body;
+      }
+    });
+  }
 
-  btnSubmitClaim.addEventListener('click', submitClaim);
+  if (btnSubmitClaim) {
+    btnSubmitClaim.addEventListener('click', submitClaim);
+  }
 
   const btnExport = document.getElementById('btnExportCode');
   const btnImport = document.getElementById('btnImportCode');
   const textBackup = document.getElementById('textBackupCode');
 
-  btnExport.addEventListener('click', async () => {
-    try {
-      const code = await userState.exportBackupCode();
-      textBackup.value = code;
-      textBackup.classList.remove('hidden');
-      navigator.clipboard.writeText(code).then(() => {
-        showToast('복구 코드가 클립보드에 복사되었습니다!');
-      });
-    } catch (err) {
-      showToast('복구 코드 생성 실패');
-    }
-  });
-
-  btnImport.addEventListener('click', async () => {
-    const code = prompt('복구 코드를 붙여넣으세요:');
-    if (code && code.trim()) {
+  if (btnExport && textBackup) {
+    btnExport.addEventListener('click', async () => {
       try {
-        const ok = await userState.importBackupCode(code.trim());
-        if (ok) {
-          updateUserHeader();
-          renderPresetManageList();
-          showToast('성공적으로 데이터를 복원했습니다!');
-        }
+        const code = await userState.exportBackupCode();
+        textBackup.value = code;
+        textBackup.classList.remove('hidden');
+        navigator.clipboard.writeText(code).then(() => {
+          showToast('복구 코드가 클립보드에 복사되었습니다!');
+        });
       } catch (err) {
-        showToast('유효하지 않은 복구 코드입니다.');
+        showToast('복구 코드 생성 실패');
       }
-    }
-  });
+    });
+  }
 
-  document.getElementById('btnAddPreset').addEventListener('click', () => {
-    const t = prompt('헤드라인(최대 15자):');
-    if (!t) return;
-    const b = prompt('상세 내용(최대 35자):');
-    if (!b) return;
-    userState.addPreset(t, b);
-    renderPresetManageList();
-    showToast('프리셋이 추가되었습니다.');
-  });
+  if (btnImport) {
+    btnImport.addEventListener('click', async () => {
+      const code = prompt('복구 코드를 붙여넣으세요:');
+      if (code && code.trim()) {
+        try {
+          const ok = await userState.importBackupCode(code.trim());
+          if (ok) {
+            updateUserHeader();
+            renderPresetManageList();
+            showToast('성공적으로 데이터를 복원했습니다!');
+          }
+        } catch (err) {
+          showToast('유효하지 않은 복구 코드입니다.');
+        }
+      }
+    });
+  }
+
+  const btnAddP = document.getElementById('btnAddPreset');
+  if (btnAddP) {
+    btnAddP.addEventListener('click', () => {
+      const t = prompt('헤드라인(최대 15자):');
+      if (!t) return;
+      const b = prompt('상세 내용(최대 35자):');
+      if (!b) return;
+      userState.addPreset(t, b);
+      renderPresetManageList();
+      showToast('프리셋이 추가되었습니다.');
+    });
+  }
 }
 
 // 11. PWA 서비스 워커 등록

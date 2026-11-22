@@ -4,7 +4,7 @@
  */
 
 const STORAGE_KEY = 'stationland_user_state';
-const isGitHubPages = window.location.hostname.includes('github.io');
+window.isGitHubPages = window.location.hostname.includes('github.io');
 
 class UserStateManager {
   constructor() {
@@ -72,7 +72,7 @@ class UserStateManager {
     }
 
     if (!this.state.token) {
-      if (isGitHubPages) {
+      if (window.isGitHubPages) {
         this.state.token = 'gh_token_' + this.state.uuid;
         this.save();
         return;
@@ -154,7 +154,7 @@ class UserStateManager {
     });
 
     try {
-      if (!isGitHubPages) {
+      if (!window.isGitHubPages) {
         const res = await fetch('./api/user/export', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -176,7 +176,7 @@ class UserStateManager {
   // 복구 코드 가져오기 (불러오기)
   async importBackupCode(backupCode) {
     try {
-      if (!isGitHubPages) {
+      if (!window.isGitHubPages) {
         const res = await fetch('./api/user/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -219,3 +219,4 @@ class UserStateManager {
 }
 
 const userState = new UserStateManager();
+window.userState = userState;
